@@ -9,6 +9,8 @@ flask-sqlalchemy = "*"
 flask-migrate = "*"
 psycopg = {extras = ["pool", "binary"], version = "*"}
 python-dotenv = "*"
+psycopg2-binary = "*"
+flask-cors = "*"
 
 [dev-packages]
 
