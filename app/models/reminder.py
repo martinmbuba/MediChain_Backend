@@ -6,6 +6,7 @@ class Reminder(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey("patients.id"), nullable=False)
+    caregiver_id = db.Column(db.Integer, db.ForeignKey("caregivers.id"), nullable=True)
     description = db.Column(db.Text)
     reminder_type = db.Column(db.String(100))
     scheduled_time = db.Column(db.DateTime)
