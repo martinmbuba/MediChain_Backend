@@ -18,22 +18,33 @@ def register():
     if not email or not password:
         return jsonify({"message": "Email and password required"}), 400
 
-    if role != "patient":
-        return jsonify({"message": "Registration for this role is restricted"}), 403
+    # Register Patient
+    if role == "patient":
+        existing = Patient.query.filter_by(email=email).first()
+        if existing:
+            return jsonify({"message": "Email already registered"}), 400
 
-    existing = Patient.query.filter_by(email=email).first()
-    if existing:
-        return jsonify({"message": "Email already registered"}), 400
+        new = Patient(full_name=name, email=email, password=hash_password(password))
+        db.session.add(new)
+        db.session.commit()
 
-    new = Patient(full_name=name, email=email, password=hash_password(password))
-    db.session.add(new)
-    db.session.commit()
+        token = create_token({"user_id": new.id, "role": "patient", "email": new.email})
+        return jsonify({"token": token, "user": {"id": new.id, "email": new.email, "role": "patient"}}), 201
 
-    token = create_token({"user_id": new.id, "role": "patient", "email": new.email})
-    return jsonify({
-        "token": token,
-        "user": {"id": new.id, "email": new.email, "role": "patient"}
-    }), 201
+    # Register Doctor
+    elif role == "doctor":
+        existing = Doctor.query.filter_by(email=email).first()
+        if existing:
+            return jsonify({"message": "Email already registered"}), 400
+
+        new = Doctor(full_name=name, email=email, password=hash_password(password))
+        db.session.add(new)
+        db.session.commit()
+
+        token = create_token({"user_id": new.id, "role": "doctor", "email": new.email})
+        return jsonify({"token": token, "user": {"id": new.id, "email": new.email, "role": "doctor"}}), 201
+
+    return jsonify({"message": "Invalid role"}), 400
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -44,9 +55,11 @@ def login():
 
     user = Patient.query.filter_by(email=email).first()
     role = "patient"
+
     if not user:
         user = Doctor.query.filter_by(email=email).first()
         role = "doctor" if user else None
+
     if not user:
         return jsonify({"message": "User not found"}), 404
 
@@ -54,6 +67,7 @@ def login():
         return jsonify({"message": "Invalid credentials"}), 401
 
     token = create_token({"user_id": user.id, "role": role, "email": user.email})
+
     return jsonify({
         "token": token,
         "user": {"id": user.id, "email": user.email, "role": role}
