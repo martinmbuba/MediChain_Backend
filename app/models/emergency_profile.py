@@ -16,24 +16,24 @@ class EmergencyProfile(db.Model):
     qr_token = db.Column(db.String(255), unique=True, nullable=True)
     visible_fields = db.Column(db.JSON, default={})
     blood_type = db.Column(db.String(20))
-    allergies = db.Column(db.Text)
-    next_of_kin_name = db.Column(db.String(255))
-    next_of_kin_phone = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_public_dict(self):
-        """
-        Returns a sanitized version of the profile for public access
-        """
+        """Public view of the profile including patient’s shared info"""
         if not self.public_visible:
             return None
 
-        data = {
+        patient = self.patient  # relationship access
+        return {
+            "full_name": patient.full_name,
+            "phone": patient.phone if self.public_phone_visible else None,
+            "allergies": patient.allergies,
+            "first_aid_procedure": patient.first_aid_procedure,
+            "next_of_kin_name": patient.next_of_kin_name,
+            "next_of_kin_phone": patient.next_of_kin_phone,
+            "caregiver_name": patient.caregiver_name,
+            "caregiver_phone": patient.caregiver_phone,
             "blood_type": self.blood_type,
-            "allergies": self.allergies,
-            "next_of_kin_name": self.next_of_kin_name,
-            "next_of_kin_phone": self.next_of_kin_phone if self.public_phone_visible else None,
             "visible_fields": self.visible_fields,
         }
-        return data
