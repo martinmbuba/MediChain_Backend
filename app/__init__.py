@@ -2,8 +2,8 @@
 from flask import Flask
 from flask_cors import CORS
 from flask_migrate import Migrate
-from .db import db
-from .config import Config
+from app.db import db
+from app.config import Config
 
 migrate = Migrate()
 
@@ -16,16 +16,22 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # ✅ Import models so Flask-Migrate can detect them
+    # Import all models so Flask-Migrate detects them
     from app import models
 
-    # ✅ Import and register routes
-    from .routes import register_routes
-    register_routes(app)
+    # Import and register blueprints
+    from app.routes.auth_routes import auth_bp
+    from app.routes.patient_routes import patient_bp
+    from app.routes.caregiver_routes import caregiver_bp
+    from app.routes.emergency_routes import emergency_bp
 
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(patient_bp)
+    app.register_blueprint(caregiver_bp)
+    app.register_blueprint(emergency_bp)
 
-    # Simple test route
-    @app.route('/')
+    # Simple health check route
+    @app.route("/")
     def index():
         return {"message": "MediChain backend is up"}
 

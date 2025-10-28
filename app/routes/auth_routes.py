@@ -1,74 +1,63 @@
 from flask import Blueprint, request, jsonify
-from app.db import db
 from app.models.patient import Patient
-from app.models.doctor import Doctor
-from app.utilities.hashing import hash_password, verify_password
+from app.models.emergency_profile import EmergencyProfile
+from app.db import db
 from app.utilities.jwt_helper import create_token
+from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint("auth_bp", __name__)
 
+# ------------------- REGISTER ---------------------
 @auth_bp.route("/register", methods=["POST"])
-def register():
+def register_patient():
     data = request.get_json()
-    role = data.get("role", "patient")
-    email = data.get("email")
-    password = data.get("password")
-    name = data.get("full_name", "")
 
-    if not email or not password:
-        return jsonify({"message": "Email and password required"}), 400
+    required_fields = ["full_name", "email", "password"]
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
 
-    # Register Patient
-    if role == "patient":
-        existing = Patient.query.filter_by(email=email).first()
-        if existing:
-            return jsonify({"message": "Email already registered"}), 400
+    if Patient.query.filter_by(email=data["email"]).first():
+        return jsonify({"error": "Email already registered"}), 400
 
-        new = Patient(full_name=name, email=email, password=hash_password(password))
-        db.session.add(new)
-        db.session.commit()
+    hashed_password = generate_password_hash(data["password"])
 
-        token = create_token({"user_id": new.id, "role": "patient", "email": new.email})
-        return jsonify({"token": token, "user": {"id": new.id, "email": new.email, "role": "patient"}}), 201
+    new_patient = Patient(
+        full_name=data["full_name"],
+        email=data["email"],
+        phone=data.get("phone"),
+        password=hashed_password,
+        date_of_birth=data.get("date_of_birth"),
+        first_aid_procedure=data.get("first_aid_procedure"),
+        allergies=data.get("allergies"),
+        next_of_kin_name=data.get("next_of_kin_name"),
+        next_of_kin_phone=data.get("next_of_kin_phone"),
+        caregiver_name=data.get("caregiver_name"),
+        caregiver_phone=data.get("caregiver_phone"),
+    )
 
-    # Register Doctor
-    elif role == "doctor":
-        existing = Doctor.query.filter_by(email=email).first()
-        if existing:
-            return jsonify({"message": "Email already registered"}), 400
+    db.session.add(new_patient)
+    db.session.commit()
 
-        new = Doctor(full_name=name, email=email, password=hash_password(password))
-        db.session.add(new)
-        db.session.commit()
+    # 🔗 Automatically create emergency profile for patient
+    emergency_profile = EmergencyProfile(patient_id=new_patient.id)
+    db.session.add(emergency_profile)
+    db.session.commit()
 
-        token = create_token({"user_id": new.id, "role": "doctor", "email": new.email})
-        return jsonify({"token": token, "user": {"id": new.id, "email": new.email, "role": "doctor"}}), 201
-
-    return jsonify({"message": "Invalid role"}), 400
+    return jsonify({"message": "Patient registered successfully"}), 201
 
 
+# ------------------- LOGIN ---------------------
 @auth_bp.route("/login", methods=["POST"])
-def login():
+def login_patient():
     data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
 
-    user = Patient.query.filter_by(email=email).first()
-    role = "patient"
+    patient = Patient.query.filter_by(email=data.get("email")).first()
+    if not patient or not check_password_hash(patient.password, data.get("password")):
+        return jsonify({"error": "Invalid email or password"}), 401
 
-    if not user:
-        user = Doctor.query.filter_by(email=email).first()
-        role = "doctor" if user else None
-
-    if not user:
-        return jsonify({"message": "User not found"}), 404
-
-    if not verify_password(password, user.password):
-        return jsonify({"message": "Invalid credentials"}), 401
-
-    token = create_token({"user_id": user.id, "role": role, "email": user.email})
-
+    token = create_token({"patient_id": patient.id})
     return jsonify({
         "token": token,
-        "user": {"id": user.id, "email": user.email, "role": role}
+        "patient_id": patient.id,
+        "full_name": patient.full_name
     }), 200
