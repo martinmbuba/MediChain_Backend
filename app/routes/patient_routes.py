@@ -1,40 +1,51 @@
-from flask import Blueprint, jsonify, request
+# app/routes/patient_routes.py
+from flask import Blueprint, request, jsonify
 from app.models.patient import Patient
-from app.models.record import Record
 from app.db import db
-from app.utilities.decorators import require_auth, require_role
+from app.utilities.decorators import token_required
 
 patient_bp = Blueprint("patient_bp", __name__)
 
-@patient_bp.route("/me", methods=["GET"])
-@require_auth
-@require_role("patient")
-def me():
-    user = request.user
-    p = Patient.query.get(user["user_id"])
-    if not p:
-        return jsonify({"message": "Not found"}), 404
-    return jsonify({
-        "id": p.id,
-        "full_name": p.full_name,
-        "email": p.email,
-        "phone": p.phone,
-        "condition": p.condition
-    })
+# ------------------- VIEW PROFILE ---------------------
+@patient_bp.route("/patient/profile", methods=["GET"])
+@token_required
+def view_profile(current_user):
+    # current_user should already be a Patient instance
+    patient = Patient.query.get(current_user.id)
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
 
-@patient_bp.route("/records", methods=["GET"])
-@require_auth
-@require_role("patient")
-def my_records():
-    user = request.user
-    records = Record.query.filter_by(patient_id=user["user_id"]).all()
-    out = []
-    for r in records:
-        out.append({
-            "id": r.id,
-            "diagnosis": r.diagnosis,
-            "prescription": r.prescription,
-            "date_of_visit": r.date_of_visit.isoformat() if r.date_of_visit else None,
-            "doctor": {"id": r.doctor.id, "full_name": r.doctor.full_name} if r.doctor else None
-        })
-    return jsonify(out)
+    return jsonify({
+        "id": patient.id,
+        "full_name": patient.full_name,
+        "email": patient.email,
+        "phone": patient.phone,
+        "date_of_birth": str(patient.date_of_birth) if patient.date_of_birth else None,
+        "first_aid_procedure": patient.first_aid_procedure,
+        "allergies": patient.allergies,
+        "next_of_kin_name": patient.next_of_kin_name,
+        "next_of_kin_phone": patient.next_of_kin_phone,
+        "caregiver_name": patient.caregiver_name,
+        "caregiver_phone": patient.caregiver_phone
+    }), 200
+
+
+# ------------------- UPDATE PROFILE ---------------------
+@patient_bp.route("/patient/update", methods=["PATCH"])
+@token_required
+def update_profile(current_user):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No update data provided"}), 400
+
+    patient = Patient.query.get(current_user.id)
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    protected_fields = ["id", "email", "password"]
+    for field, value in data.items():
+        if field not in protected_fields and hasattr(patient, field):
+            setattr(patient, field, value)
+
+    db.session.commit()
+    return jsonify({"message": "Profile updated successfully"}), 200
