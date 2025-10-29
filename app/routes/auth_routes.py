@@ -6,8 +6,6 @@ from app.utilities.jwt_helper import create_token
 from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint("auth_bp", __name__)
-
-# ------------------- REGISTER ---------------------
 @auth_bp.route("/register", methods=["POST"])
 def register_patient():
     data = request.get_json()
@@ -38,7 +36,6 @@ def register_patient():
     db.session.add(new_patient)
     db.session.commit()
 
-    # 🔗 Automatically create emergency profile for patient
     emergency_profile = EmergencyProfile(patient_id=new_patient.id)
     db.session.add(emergency_profile)
     db.session.commit()
@@ -46,7 +43,7 @@ def register_patient():
     return jsonify({"message": "Patient registered successfully"}), 201
 
 
-# ------------------- LOGIN ---------------------
+# login
 @auth_bp.route("/login", methods=["POST"])
 def login_patient():
     data = request.get_json()

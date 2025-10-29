@@ -3,13 +3,12 @@ from app.models.caregiver import Caregiver
 from app.models.patient import Patient
 from app.models.record import Record
 from app.utilities.decorators import token_required
-
 from app.db import db
 
 caregiver_bp = Blueprint("caregiver_bp", __name__)
 
-# ------------------- REGISTER ---------------------
-@caregiver_bp.route("/caregiver/register", methods=["POST"])
+
+@caregiver_bp.route("/register", methods=["POST"])  
 def register_caregiver():
     data = request.get_json()
     patient_id = data.get("patient_id")
@@ -29,17 +28,18 @@ def register_caregiver():
 
     return jsonify({"message": "Caregiver registered successfully"}), 201
 
-
-# ------------------- VIEW PATIENT RECORDS ---------------------
-@caregiver_bp.route("/caregiver/<int:patient_id>/records", methods=["GET"])
+#  VIEW PATIENT RECORDS 
+@caregiver_bp.route("/<int:patient_id>/records", methods=["GET"])  # ✅ removed /caregiver prefix
 def caregiver_view_patient_records(patient_id):
     patient = Patient.query.get(patient_id)
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
 
     records = Record.query.filter_by(patient_id=patient_id).all()
-    return jsonify([{
-        "id": record.id,
-        "description": record.description,
-        "created_at": str(record.created_at)
-    } for record in records]), 200
+    return jsonify([
+        {
+            "id": record.id,
+            "description": record.description,
+            "created_at": str(record.created_at)
+        } for record in records
+    ]), 200

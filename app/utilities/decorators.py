@@ -1,9 +1,9 @@
 from functools import wraps
 from flask import request, jsonify
 from app.utilities.jwt_helper import decode_token
-from app.models.patient import Patient  # Import your model for lookup if needed
+from app.models.patient import Patient 
 
-# ------------------- TOKEN REQUIRED ---------------------
+# TOKEN REQUIRED 
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -15,7 +15,6 @@ def token_required(f):
         token = auth_header.split(" ")[1]
         payload = decode_token(token)
 
-        # Handle invalid or expired tokens
         if payload is None:
             return jsonify({"message": "Invalid token"}), 401
 
@@ -33,7 +32,6 @@ def token_required(f):
     return decorated
 
 
-# ------------------- REQUIRE ROLE (Optional if roles exist) ---------------------
 def require_role(role):
     def decorator(f):
         @wraps(f)
