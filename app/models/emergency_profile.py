@@ -24,7 +24,7 @@ class EmergencyProfile(db.Model):
         if not self.public_visible:
             return None
 
-        patient = self.patient  # relationship access
+        patient = self.patient  
         return {
             "full_name": patient.full_name,
             "phone": patient.phone if self.public_phone_visible else None,

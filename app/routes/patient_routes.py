@@ -1,4 +1,3 @@
-# app/routes/patient_routes.py
 from flask import Blueprint, request, jsonify
 from app.models.patient import Patient
 from app.db import db
@@ -6,7 +5,7 @@ from app.utilities.decorators import token_required
 
 patient_bp = Blueprint("patient_bp", __name__)
 
-# ------------------- VIEW PROFILE ---------------------
+#VIEW PROFILE 
 @patient_bp.route("/patient/profile", methods=["GET"])
 @token_required
 def view_profile(current_user):
@@ -30,7 +29,7 @@ def view_profile(current_user):
     }), 200
 
 
-# ------------------- UPDATE PROFILE ---------------------
+#  UPDATE PROFILE 
 @patient_bp.route("/patient/update", methods=["PATCH"])
 @token_required
 def update_profile(current_user):
