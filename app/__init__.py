@@ -1,22 +1,16 @@
 # app/__init__.py
-from flask import Flask, app
+from flask import Flask
 from flask_cors import CORS
-from flask_migrate import Migrate
-from app.db import db
 from app.config import Config
-
-migrate = Migrate()
+from app.db import db
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    db.init_app(app)
 
     CORS(app)
-    db.init_app(app)
-    migrate.init_app(app, db)
-
-    from app import models
 
     # Import and register blueprints
     from app.routes.auth_routes import auth_bp
@@ -29,7 +23,7 @@ def create_app():
     app.register_blueprint(caregiver_bp, url_prefix="/api/caregiver")
     app.register_blueprint(emergency_bp, url_prefix="/api/emergency")
 
-# Basic route to check if the app is running
+    # Basic route to check if the app is running
     @app.route("/")
     def index():
         return {"message": "MediChain backend is up"}

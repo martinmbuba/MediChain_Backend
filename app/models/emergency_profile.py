@@ -24,7 +24,8 @@ class EmergencyProfile(db.Model):
         if not self.public_visible:
             return None
 
-        patient = self.patient  
+        from app.models.patient import Patient  # Import here to avoid circular import
+        patient = Patient.query.get(self.patient_id)
         return {
             "full_name": patient.full_name,
             "phone": patient.phone if self.public_phone_visible else None,
