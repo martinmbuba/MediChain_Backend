@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.db import get_db_connection
+from app.db import get_db_connection, release_db_connection
 import psycopg2.extras
 
 caregiver_bp = Blueprint("caregiver_bp", __name__)
@@ -37,7 +37,7 @@ def register_caregiver():
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 #  VIEW PATIENT RECORDS
 @caregiver_bp.route("/<int:patient_id>/records", methods=["GET"])
@@ -56,7 +56,7 @@ def caregiver_view_patient_records(patient_id):
         return jsonify([dict(record) for record in records]), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # VIEW PATIENT APPOINTMENTS
 @caregiver_bp.route("/<int:patient_id>/appointments", methods=["GET"])
@@ -75,7 +75,7 @@ def caregiver_view_patient_appointments(patient_id):
         return jsonify([dict(appointment) for appointment in appointments]), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # ADD APPOINTMENT FOR PATIENT
 @caregiver_bp.route("/<int:patient_id>/appointments", methods=["POST"])
@@ -104,4 +104,4 @@ def caregiver_add_appointment(patient_id):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)

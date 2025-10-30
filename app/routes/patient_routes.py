@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from app.db import get_db_connection
+from app.db import get_db_connection, release_db_connection
 from app.utilities.decorators import token_required
 import psycopg2.extras
+import uuid
 
 patient_bp = Blueprint("patient_bp", __name__)
 
@@ -13,7 +14,12 @@ def view_profile(current_user):
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
-        cursor.execute("SELECT * FROM patients WHERE id = %s", (current_user.id,))
+        cursor.execute("""
+            SELECT p.*, ep.blood_type, ep.public_visible, ep.public_phone_visible
+            FROM patients p
+            LEFT JOIN emergency_profiles ep ON p.id = ep.patient_id
+            WHERE p.id = %s
+        """, (current_user.id,))
         patient = cursor.fetchone()
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
@@ -29,11 +35,14 @@ def view_profile(current_user):
             "next_of_kin_name": patient["next_of_kin_name"],
             "next_of_kin_phone": patient["next_of_kin_phone"],
             "caregiver_name": patient["caregiver_name"],
-            "caregiver_phone": patient["caregiver_phone"]
+            "caregiver_phone": patient["caregiver_phone"],
+            "blood_type": patient["blood_type"],
+            "public_visible": patient["public_visible"],
+            "public_phone_visible": patient["public_phone_visible"]
         }), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # VIEW MEDICAL RECORDS
 @patient_bp.route("/records", methods=["GET"])
@@ -48,7 +57,7 @@ def view_records(current_user):
         return jsonify([dict(record) for record in records]), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # ADD MEDICAL RECORD
 @patient_bp.route("/records", methods=["POST"])
@@ -73,7 +82,7 @@ def add_record(current_user):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # VIEW APPOINTMENTS (using reminders table for appointments)
 @patient_bp.route("/appointments", methods=["GET"])
@@ -88,7 +97,7 @@ def view_appointments(current_user):
         return jsonify([dict(appointment) for appointment in appointments]), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # ADD APPOINTMENT
 @patient_bp.route("/appointments", methods=["POST"])
@@ -113,7 +122,7 @@ def add_appointment(current_user):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 #  UPDATE PROFILE
 @patient_bp.route("/update", methods=["PATCH"])
@@ -140,7 +149,7 @@ def update_profile(current_user):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # VIEW PRESCRIPTIONS
 @patient_bp.route("/prescriptions", methods=["GET"])
@@ -155,7 +164,7 @@ def view_prescriptions(current_user):
         return jsonify([dict(prescription) for prescription in prescriptions]), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # ADD PRESCRIPTION
 @patient_bp.route("/prescriptions", methods=["POST"])
@@ -180,7 +189,7 @@ def add_prescription(current_user):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # UPDATE PRESCRIPTION (e.g., mark completed, take dose)
 @patient_bp.route("/prescriptions/<int:prescription_id>", methods=["PATCH"])
@@ -217,7 +226,7 @@ def update_prescription(current_user, prescription_id):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
 # UPDATE EMERGENCY PROFILE
 @patient_bp.route("/emergency-profile", methods=["PUT"])
@@ -231,26 +240,30 @@ def update_emergency_profile(current_user):
     cursor = conn.cursor()
 
     try:
-        update_fields = []
+        fields = []
         values = []
         if "blood_type" in data:
-            update_fields.append("blood_type = %s")
+            fields.append("blood_type")
             values.append(data["blood_type"])
         if "public_visible" in data:
-            update_fields.append("public_visible = %s")
+            fields.append("public_visible")
             values.append(data["public_visible"])
         if "public_phone_visible" in data:
-            update_fields.append("public_phone_visible = %s")
+            fields.append("public_phone_visible")
             values.append(data["public_phone_visible"])
         if "visible_fields" in data:
-            update_fields.append("visible_fields = %s")
+            fields.append("visible_fields")
             values.append(data["visible_fields"])
 
-        if update_fields:
-            update_fields.append("updated_at = CURRENT_TIMESTAMP")
-            set_clause = ", ".join(update_fields)
-            values.append(current_user.id)
-            cursor.execute(f"UPDATE emergency_profiles SET {set_clause} WHERE patient_id = %s", values)
+        if fields:
+            columns = ", ".join(fields)
+            placeholders = ", ".join(["%s"] * len(fields))
+            set_clause = ", ".join([f"{f} = %s" for f in fields])
+            cursor.execute(f"""
+                INSERT INTO emergency_profiles (patient_id, public_id, {columns})
+                VALUES (%s, %s, {placeholders})
+                ON CONFLICT (patient_id) DO UPDATE SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+            """, [current_user.id, uuid.uuid4().hex] + values + values)
             conn.commit()
             return jsonify({"message": "Emergency profile updated successfully"}), 200
         else:
@@ -260,4 +273,4 @@ def update_emergency_profile(current_user):
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)

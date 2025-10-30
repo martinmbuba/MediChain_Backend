@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
-from app.db import get_db_connection
-
+from app.db import get_db_connection, release_db_connection
+import psycopg2.extras
 emergency_bp = Blueprint("emergency_bp", __name__)
 
 # PUBLIC EMERGENCY VIEW
@@ -10,15 +10,17 @@ def public_emergency_view(patient_id):
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
+        patient_id_int = int(patient_id)  # Cast to int for DB query
+
         # Get emergency profile
-        cursor.execute("SELECT * FROM emergency_profiles WHERE patient_id = %s", (patient_id,))
+        cursor.execute("SELECT * FROM emergency_profiles WHERE patient_id = %s", (patient_id_int,))
         profile = cursor.fetchone()
 
         if not profile or not profile["public_visible"]:
             return jsonify({"error": "Profile not accessible"}), 403
 
         # Get patient data
-        cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
+        cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id_int,))
         patient = cursor.fetchone()
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
@@ -35,6 +37,8 @@ def public_emergency_view(patient_id):
             "blood_type": profile.get("blood_type"),
             "visible_fields": profile.get("visible_fields", {})
         }), 200
+    except ValueError:
+        return jsonify({"error": "Invalid patient ID"}), 400
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
