@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.db import get_db_connection
+from app.db import get_db_connection, release_db_connection
 from app.utilities.jwt_helper import create_token
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -54,7 +54,7 @@ def register_patient():
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
 
     return jsonify({"message": "Patient registered successfully"}), 201
 
@@ -81,4 +81,4 @@ def login_patient():
         }), 200
     finally:
         cursor.close()
-        conn.close()
+        release_db_connection(conn)
